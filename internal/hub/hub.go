@@ -1,17 +1,19 @@
 package hub
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
 
 	"github.com/gabeatwell/go-chat/internal/client"
+	"github.com/gabeatwell/go-chat/internal/db"
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // allow all origins
+		return true
 	},
 }
 
@@ -51,6 +53,19 @@ func (h *Hub) Run() {
 			log.Println("Client disconnected. Total:", len(h.clients))
 
 		case message := <-h.broadcast:
+			// ----- SAVE TO DATABASE -----
+			var msg struct {
+				User string `json:"user"`
+				Text string `json:"text"`
+			}
+			if err := json.Unmarshal(message, &msg); err == nil {
+				if err := db.SaveMessage(msg.User, msg.Text); err != nil {
+					log.Println("Failed to save message:", err)
+				}
+			}
+			// ----------------------------
+
+			// Broadcast to all connected clients
 			h.mu.Lock()
 			for c := range h.clients {
 				select {

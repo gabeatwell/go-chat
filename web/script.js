@@ -1,46 +1,92 @@
+// ---------- DOM refs ----------
 const messagesDiv = document.getElementById('messages');
 const input = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const statusDot = document.querySelector('.status-dot');
 const nameModal = document.getElementById('nameModal');
 const nameInput = document.getElementById('nameInput');
 const joinBtn = document.getElementById('joinBtn');
-const statusDot = document.getElementById('statusDot');
 
-let username = "";
-let ws = null;
+// ---------- Halt if critical elements are missing ----------
+if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) {
+    console.error('Required HTML elements not found');
+    throw new Error('Missing DOM elements');
+}
 
-// --- Name modal ---
-joinBtn.addEventListener('click', joinChat);
-nameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') joinChat();
-});
+let username = '';
+let ws;
+let reconnectAttempts = 0;
 
+// ---------- Name modal ----------
 function joinChat() {
     const name = nameInput.value.trim();
     if (!name) return;
     username = name;
     nameModal.style.display = 'none';
-    connectWebSocket();
+    loadHistory();
+    connect();
 }
 
-// --- WebSocket ---
-function connectWebSocket() {
+joinBtn.addEventListener('click', joinChat);
+nameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') joinChat();
+});
+nameInput.focus();
+
+// ---------- Helper to escape HTML ----------
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function addMessage(user, text, isOwn) {
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'own' : 'other'}`;
+
+    div.innerHTML = `<strong>${escapeHtml(user)}:</strong> ${escapeHtml(text)}`;
+
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// ---------- Load history from the server ----------
+async function loadHistory() {
+    try {
+        const res = await fetch('/history');
+        if (!res.ok) throw new Error('Failed to load history');
+
+        const messages = await res.json();
+
+        messages.forEach(msg => {
+            addMessage(msg.User, msg.Text, msg.User === username);
+        });
+    } catch (err) {
+        console.error('Could not load chat history:', err);
+    }
+}
+
+// ---------- WebSocket ----------
+function connect() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
     ws.onopen = () => {
-        console.log('Connected to chat');
-        statusDot.style.background = '#22c55e';
+        console.log('Connected');
+        if (statusDot) statusDot.style.background = '#22c55e';
+        reconnectAttempts = 0;
     };
 
     ws.onclose = () => {
-        console.log('Disconnected');
-        statusDot.style.background = '#ef4444';
+        console.log('Disconnected – reconnecting...');
+        if (statusDot) statusDot.style.background = '#ef4444';
+        setTimeout(connect, Math.min(1000 * (reconnectAttempts + 1), 5000));
+        reconnectAttempts++;
     };
 
-    ws.onerror = () => {
-        console.log('WebSocket error');
-        statusDot.style.background = '#ef4444';
+    ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        if (statusDot) statusDot.style.background = '#ef4444';
     };
 
     ws.onmessage = (event) => {
@@ -48,34 +94,21 @@ function connectWebSocket() {
             const data = JSON.parse(event.data);
             addMessage(data.user, data.text, data.user === username);
         } catch (e) {
-            // if server sends plain text, display it
-            addMessage('System', event.data, false);
+            console.error('Bad message:', event.data);
         }
     };
 }
 
-// --- Render message ---
-function addMessage(user, text, isOwn) {
-    const div = document.createElement('div');
-    div.className = `message ${isOwn ? 'own' : 'other'}`;
-    div.innerHTML = isOwn ? text : `strong>${escapeHtml(user)}</strong>br>${escapeHtml(text)}`;
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-// --- Send ---
 function sendMessage() {
     const text = input.value.trim();
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!text) return;
 
-    const payload = JSON.stringify({ user: username, text });
-    ws.send(payload);
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Not connected yet. Please wait a few seconds and try again.');
+        return;
+    }
+
+    ws.send(JSON.stringify({ user: username, text }));
     input.value = '';
 }
 
