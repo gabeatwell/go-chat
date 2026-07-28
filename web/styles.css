@@ -60,7 +60,7 @@ body {
   background: #475569;
   border-bottom-left-radius: 4px;
 }
-#input-area {
+.input-area {
   padding: 16px;
   background: #334155;
   display: flex;
