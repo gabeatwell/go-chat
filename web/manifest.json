@@ -1,6 +1,6 @@
 {
-    "name": "Go Chat",
-    "short_name": "Go Chat",
+    "name": "chatski",
+    "short_name": "chatski",
     "description": "A real-time chat app built with Go",
     "start_url": "/",
     "display": "standalone",
