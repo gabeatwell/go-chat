@@ -27,6 +27,53 @@ body {
   align-items: center;
   gap: 10px;
 }
+.install-btn {
+  margin-left: auto;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #279ff0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.install-btn svg {
+  width: clamp(1.3rem, 1.5vw, 2.4rem);
+  height: clamp(1.3rem, 1.5vw, 2.4rem);
+}
+.install-btn:hover {
+  background: #279ff0;
+  color: white;
+}
+/* Mobile: icon only */
+.install-label {
+  display: none;
+}
+/* Desktop: show label as pill */
+@media (min-width: 481px) {
+  .install-btn {
+    border: 1px solid #279ff0;
+    border-radius: 16px;
+    padding: 6px 14px;
+  }
+  .install-btn svg {
+    width: clamp(1.3rem, 1.5vw, 2.4rem);
+    height: clamp(1.3rem, 1.5vw, 2.4rem);
+  }
+  .install-label {
+    display: inline;
+    font-size: clamp(1.3rem, 1.5vw, 2.4rem);
+  }
+}
 .status-dot {
   width: 10px;
   height: 10px;

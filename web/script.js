@@ -6,6 +6,7 @@ const statusDot = document.querySelector('.status-dot');
 const nameModal = document.getElementById('nameModal');
 const nameInput = document.getElementById('nameInput');
 const joinBtn = document.getElementById('joinBtn');
+const installBtn = document.getElementById('installBtn');
 
 // ---------- Halt if critical elements are missing ----------
 if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) {
@@ -116,3 +117,28 @@ sendBtn.addEventListener('click', sendMessage);
 input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
+
+// ---------- PWA: Service Worker ----------
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+}
+
+// ---------- PWA: Install prompt ----------
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.hidden = false;
+});
+
+if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        installBtn.hidden = true;
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        console.log('Install result:', result.outcome);
+        deferredPrompt = null;
+    });
+}
