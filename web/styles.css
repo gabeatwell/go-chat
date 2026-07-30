@@ -1,12 +1,13 @@
 body {
   font-family: Verdana, Geneva, Tahoma, sans-serif;
-  background: #0f172a;
+  background: #202020;
   color: #e2e8f0;
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
 }
+
 .chat-container {
   width: 100%;
   max-width: 480px;
@@ -17,69 +18,82 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-.chat-header {
-  background: #334155;
-  padding: 16px 20px;
-  font-weight: 600;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.install-btn {
-  margin-left: auto;
-  padding: 6px 10px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #279ff0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-.install-btn svg {
-  width: clamp(1.3rem, 1.5vw, 2.4rem);
-  height: clamp(1.3rem, 1.5vw, 2.4rem);
-}
-.install-btn:hover {
-  background: #279ff0;
-  color: white;
-}
-/* Mobile: icon only */
-.install-label {
-  display: none;
-}
-/* Desktop: show label as pill */
-@media (min-width: 481px) {
-  .install-btn {
-    border: 1px solid #279ff0;
-    border-radius: 16px;
-    padding: 6px 14px;
+
+  & .chat-header {
+    background: #334155;
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    & .status-dot {
+      width: 10px;
+      height: 10px;
+      background: #22c55e;
+      border-radius: 50%;
+    }
+
+    & .install-btn {
+      margin-left: auto;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: #279ff0;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition:
+        background 0.2s,
+        color 0.2s;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+
+      @media (min-width: 481px) {
+        border: 2px solid #279ff0;
+        border-radius: 16px;
+        padding: 6px 14px;
+      }
+
+      @media (max-width: 768px) {
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.95);
+      }
+
+      &:hover {
+        background: #279ff0;
+        color: white;
+      }
+
+      & svg {
+        width: clamp(1.3rem, 1.5vw, 2.4rem);
+        height: clamp(1.3rem, 1.5vw, 2.4rem);
+
+        @media (min-width: 481px) {
+          width: clamp(1.3rem, 1.5vw, 2.4rem);
+          height: clamp(1.3rem, 1.5vw, 2.4rem);
+        }
+      }
+
+      /* Mobile: icon only */
+      & .install-label {
+        display: none;
+
+        /* Desktop: show label as pill */
+        @media (min-width: 481px) {
+          display: inline;
+          font-size: clamp(1.3rem, 1.5vw, 2.4rem);
+        }
+      }
+    }
   }
-  .install-btn svg {
-    width: clamp(1.3rem, 1.5vw, 2.4rem);
-    height: clamp(1.3rem, 1.5vw, 2.4rem);
-  }
-  .install-label {
-    display: inline;
-    font-size: clamp(1.3rem, 1.5vw, 2.4rem);
-  }
 }
-.status-dot {
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border-radius: 50%;
-}
+
 #messages {
   flex: 1;
   overflow-y: auto;
@@ -87,7 +101,47 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+  }
 }
+
+#sendBtn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: #279ff0;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #579ff0;
+  }
+}
+
+#messageInput {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 24px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 1rem;
+  outline: none;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+}
+
 .message {
   max-width: 80%;
   padding: 10px 14px;
@@ -113,45 +167,12 @@ body {
   display: flex;
   gap: 10px;
 }
-#messageInput {
-  flex: 1;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 24px;
-  background: #1e293b;
-  color: #e2e8f0;
-  font-size: 1rem;
-  outline: none;
-}
-#messageInput::placeholder {
-  color: #94a3b8;
-}
-#sendBtn {
-  width: 48px;
-  height: 48px;
-  border: none;
-  border-radius: 50%;
-  background: #279ff0;
-  color: white;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-#sendBtn:hover {
-  background: #579ff0;
-}
-#messages::-webkit-scrollbar {
-  width: 6px;
-}
-#messages::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 3px;
-}
+
 /* --- Name Modal --- */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -169,42 +190,52 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-}
-.modal-box h2 {
-  margin: 0 0 8px;
-  color: #e2e8f0;
-}
-.modal-box p {
-  color: #94a3b8;
-  margin: 0 0 20px;
-}
-#nameInput {
-  width: 45%;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 24px;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-size: 1rem;
-  outline: none;
-  box-sizing: border-box;
-}
-#nameInput::placeholder {
-  color: #64748b;
-}
-#joinBtn {
-  margin-top: 16px;
-  padding: 12px 32px;
-  border: none;
-  border-radius: 24px;
-  background: #279ff0;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-#joinBtn:hover {
-  background: #579ff0;
+
+  & h2 {
+    margin: 0 0 8px;
+    color: #e2e8f0;
+  }
+
+  & p {
+    color: #94a3b8;
+    margin: 0 0 20px;
+  }
+
+  & #nameInput {
+    width: 75%;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 24px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 1rem;
+    outline: none;
+    box-sizing: border-box;
+
+    @media (max-width: 768px) {
+      width: 95%;
+    }
+
+    &::placeholder {
+      color: #64748b;
+    }
+  }
+
+  & #joinBtn {
+    margin-top: 16px;
+    padding: 12px 32px;
+    border: none;
+    border-radius: 24px;
+    background: #279ff0;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #579ff0;
+    }
+  }
 }
 
 @keyframes fadeIn {
