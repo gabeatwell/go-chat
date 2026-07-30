@@ -17,6 +17,8 @@ if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) 
 let username = '';
 let ws;
 let reconnectAttempts = 0;
+let unreadCount = 0;
+const ORIGINAL_TITLE = document.title;
 
 // ---------- Name modal ----------
 function joinChat() {
@@ -26,6 +28,8 @@ function joinChat() {
     nameModal.style.display = 'none';
     loadHistory();
     connect();
+    // Ask for notification permission (doesn't block anything if denied)
+    requestNotifyPermission();
 }
 
 joinBtn.addEventListener('click', joinChat);
@@ -67,6 +71,45 @@ async function loadHistory() {
     }
 }
 
+// ---------- Unread count & Notifications ----------
+function updateTitle() {
+    if (unreadCount > 0) {
+        document.title = `(${unreadCount}) ${ORIGINAL_TITLE}`;
+    } else {
+        document.title = ORIGINAL_TITLE;
+    }
+}
+
+async function requestNotifyPermission() {
+    if (!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    return result === "granted";
+}
+
+function notifyMessage(user, text) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted" && document.visibilityState !== "visible") {
+        const n = new Notification(user, {
+            body: text,
+            icon: "/icons/icon-192.svg",
+        });
+        // Auto-close after 4 seconds
+        setTimeout(() => n.close(), 4000);
+    }
+}
+
+// Clear unread when user focuses the tab
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        unreadCount = 0;
+        updateTitle();
+    }
+});
+window.addEventListener("focus", () => {
+    unreadCount = 0;
+    updateTitle();
+});
+
 // ---------- WebSocket ----------
 function connect() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -94,6 +137,13 @@ function connect() {
         try {
             const data = JSON.parse(event.data);
             addMessage(data.user, data.text, data.user === username);
+
+            // Unread count & notification for messages from others
+            if (data.user !== username) {
+                unreadCount++;
+                updateTitle();
+                notifyMessage(data.user, data.text);
+            }
         } catch (e) {
             console.error('Bad message:', event.data);
         }

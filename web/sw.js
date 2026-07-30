@@ -27,15 +27,48 @@ self.addEventListener("activate", (event) => {
     self.clients.claim();
 });
 
-// Fetch: serve from cache, fall back to network
+// Helper: put a response in the cache
+function cacheResponse(request, response) {
+    if (response && response.status === 200) {
+        const clone = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, clone));
+    }
+}
+
+// Fetch: smart strategy
+//   - Navigation (HTML) & API (/history): network-first → always fresh
+//   - Static assets (JS, CSS, images): cache-first → fast offline loads
 self.addEventListener("fetch", (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
+
+    // --- Same-origin checks only ---
+    if (url.origin !== location.origin) return;
+
+    // API calls → network only (never cache)
+    if (url.pathname === "/history") {
+        event.respondWith(fetch(request));
+        return;
+    }
+
+    // Navigation (HTML) → network-first, fall back to cache
+    if (request.mode === "navigate") {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    cacheResponse(request, response);
+                    return response;
+                })
+                .catch(() => caches.match(request))
+        );
+        return;
+    }
+
+    // Static assets → cache-first, update cache in background
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            const fetchPromise = fetch(event.request).then((response) => {
-                if (response && response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE).then((cache) => cache.put(event.request, clone));
-                }
+        caches.match(request).then((cached) => {
+            const fetchPromise = fetch(request).then((response) => {
+                cacheResponse(request, response);
                 return response;
             });
             return cached || fetchPromise;
