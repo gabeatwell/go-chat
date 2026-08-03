@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gabeatwell/go-chat/internal/db"
@@ -38,7 +39,21 @@ func main() {
 	h := hub.New()
 	go h.Run()
 
+	// handlers
+	swTemplate, err := os.ReadFile("web/sw.js")
+	if err != nil {
+		log.Fatal("Failed to read sw.js template:", err)
+	}
+
+	http.HandleFunc("/sw.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Cache-Control", "no-cache") // SW script must always revalidate
+		out := strings.Replace(string(swTemplate), "__CACHE_VERSION__", cacheVersion(), 1)
+		w.Write([]byte(out))
+	})
 	http.Handle("/", http.FileServer(http.Dir("web")))
+
+
 
 	// New endpoint: return recent messages
 	http.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
@@ -147,4 +162,9 @@ func pemEncode(data []byte, blockType string) []byte {
 	}
 	pem = append(pem, []byte("-----END "+blockType+"-----\n")...)
 	return pem
+}
+
+var buildVersion = "dev"
+func cacheVersion() string {
+    return "go-chat-" + buildVersion
 }

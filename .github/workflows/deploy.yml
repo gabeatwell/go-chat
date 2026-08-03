@@ -18,7 +18,7 @@ jobs:
 
             - name: Build for ARM64
               run: |
-                  GOOS=linux GOARCH=arm64 go build -o chat-server ./cmd/server
+                  GOOS=linux GOARCH=arm64 go build -ldflags "-X main.buildVersion=$(git rev-parse --short HEAD)" -o chat-server ./cmd/server
 
             - name: Deploy via SCP
               uses: appleboy/scp-action@v0.1.7

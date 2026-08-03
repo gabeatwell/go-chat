@@ -1,4 +1,4 @@
-const CACHE = "go-chat-v1";
+const CACHE = "__CACHE_VERSION__";
 
 const PRECACHE_URLS = [
     "/",
