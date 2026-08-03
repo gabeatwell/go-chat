@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gabeatwell/go-chat/internal/db"
 	"github.com/gabeatwell/go-chat/internal/hub"
 )
@@ -72,7 +71,7 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		var sub webpush.Subscription
+		var sub db.PushSubscription
 		if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return

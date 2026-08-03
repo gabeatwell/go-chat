@@ -25,18 +25,24 @@ func SendToSubscribers(user, text string) error {
         return err
     }
 
-    for _, s := range subs {
-        _, err := webpush.SendNotification(s, payload, &webpush.Options{
+    for _, sub := range subs {
+        wsSub := webpush.Subscription{
+            Endpoint: sub.Endpoint,
+            Keys: webpush.Keys{
+                P256dh: sub.P256dh,   // ← your db.PushSubscription fields
+                Auth:   sub.Auth,
+            },
+        }
+        _, err := webpush.SendNotification(payload, &wsSub, &webpush.Options{
             VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
             VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
-            Subject:         "mailto:gabrielatwell@proton.me",
+            Subscriber:      "mailto:gabrielatwell@proton.me",   // ← was Subject
             TTL:             60,
         })
         if err != nil {
             log.Println("Push failed:", err)
-            // 404/410 means the subscription is dead — remove it
             if strings.Contains(err.Error(), "410") || strings.Contains(err.Error(), "404") {
-                db.DeleteSubscription(s.Endpoint)
+                db.DeleteSubscription(sub.Endpoint)
             }
         }
     }
