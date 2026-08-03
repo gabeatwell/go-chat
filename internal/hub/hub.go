@@ -8,6 +8,7 @@ import (
 
 	"github.com/gabeatwell/go-chat/internal/client"
 	"github.com/gabeatwell/go-chat/internal/db"
+	"github.com/gabeatwell/go-chat/internal/push"
 	"github.com/gorilla/websocket"
 )
 
@@ -61,6 +62,10 @@ func (h *Hub) Run() {
 			if err := json.Unmarshal(message, &msg); err == nil {
 				if err := db.SaveMessage(msg.User, msg.Text); err != nil {
 					log.Println("Failed to save message:", err)
+				}
+				// web push sending
+				if err := push.SendToSubscribers(msg.User, msg.Text); err != nil {
+					log.Println("Web push error:", err)
 				}
 			}
 			// ----------------------------

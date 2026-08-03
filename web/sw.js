@@ -75,3 +75,23 @@ self.addEventListener("fetch", (event) => {
         })
     );
 });
+
+// web push
+self.addEventListener("push", (event) => {
+    const data = event.data ? event.data.json() : {};
+    event.waitUntil(
+        self.registration.showNotification(data.user || "chatski", {
+            body: data.text,
+            icon: "/icons/icon-192.svg",
+            tag: "chat", // collapse multiple messages into one notification
+        })
+    );
+});
+
+self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true })
+            .then((list) => list[0] ? list[0].focus() : clients.openWindow("/"))
+    );
+});

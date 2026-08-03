@@ -31,7 +31,48 @@ func Init(path string) error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
+	_, err = DB.Exec(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            endpoint TEXT NOT NULL UNIQUE,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `)
 	return err
+}
+
+func SaveSubscription(s webpush.Subscription) error {
+    _, err := DB.Exec(`
+        INSERT INTO push_subscriptions (endpoint, p256dh, auth)
+        VALUES (?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth
+    `, s.Endpoint, s.Keys.P256dh, s.Keys.Auth)
+    return err
+}
+
+func GetSubscriptions() ([]webpush.Subscription, error) {
+    rows, err := DB.Query(`SELECT endpoint, p256dh, auth FROM push_subscriptions`)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var subs []webpush.Subscription
+    for rows.Next() {
+        var s webpush.Subscription
+        if err := rows.Scan(&s.Endpoint, &s.Keys.P256dh, &s.Keys.Auth); err != nil {
+            return nil, err
+        }
+        subs = append(subs, s)
+    }
+    return subs, nil
+}
+
+func DeleteSubscription(endpoint string) error {
+    _, err := DB.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint)
+    return err
 }
 
 func SaveMessage(user, text string) error {

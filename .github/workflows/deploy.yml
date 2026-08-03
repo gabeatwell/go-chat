@@ -38,3 +38,15 @@ jobs:
                   key: ${{ secrets.SSH_KEY }}
                   script: |
                       sudo systemctl restart chat
+
+            - name: Set VAPID env vars
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.SSH_HOST }}
+                  username: ${{ secrets.SSH_USER }}
+                  key: ${{ secrets.SSH_KEY }}
+                  script: |
+                      sudo mkdir -p /etc/systemd/system/chat.service.d
+                      echo -e "[Service]\nEnvironment=VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}\nEnvironment=VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" | sudo tee /etc/systemd/system/chat.service.d/env.conf > /dev/null
+                      sudo systemctl daemon-reload
+                      sudo systemctl restart chat

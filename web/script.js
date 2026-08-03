@@ -21,6 +21,7 @@ let unreadCount = 0;
 const ORIGINAL_TITLE = document.title;
 const ORIGINAL_FAVICON =
   document.querySelector('link[rel="icon"]')?.href || "./icons/favicon.png";
+const VAPID_PUBLIC_KEY = "BIRtPT_tN2Wfk0SqmgQhCMNxMZmVDmiNNQQ6oqxmOC0UQfLGckhFzKEyyA2ZtEljJ9druugMmPbUEJi1Z1FBtmk";
 
 // ---------- Name modal ----------
 function joinChat() {
@@ -255,7 +256,18 @@ input.addEventListener('keypress', (e) => {
 // ---------- PWA: Service Worker ----------
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
-    navigator.serviceWorker.ready.then((reg) => reg.update());
+    navigator.serviceWorker.ready.then(async (reg) => {
+        reg.update();
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: VAPID_PUBLIC_KEY,
+        });
+        await fetch("/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sub),
+        });
+    });
 }
 
 // ---------- PWA: Install prompt ----------

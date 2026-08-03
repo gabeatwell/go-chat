@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gabeatwell/go-chat/internal/db"
 	"github.com/gabeatwell/go-chat/internal/hub"
 )
@@ -64,6 +65,23 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messages)
+	})
+
+	http.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var sub webpush.Subscription
+		if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if err := db.SaveSubscription(sub); err != nil {
+			http.Error(w, "internal error", 500)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
 	})
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
