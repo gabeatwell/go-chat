@@ -7,6 +7,7 @@ const nameModal = document.getElementById('nameModal');
 const nameInput = document.getElementById('nameInput');
 const joinBtn = document.getElementById('joinBtn');
 const installBtn = document.getElementById('installBtn');
+const logoutBtn = document.getElementById("logoutBtn");
 
 // ---------- Halt if critical elements are missing ----------
 if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) {
@@ -18,28 +19,70 @@ let username = '';
 let ws;
 let reconnectAttempts = 0;
 let unreadCount = 0;
+const NAME_KEY = "chatski_username";
 const ORIGINAL_TITLE = document.title;
 const ORIGINAL_FAVICON =
   document.querySelector('link[rel="icon"]')?.href || "./icons/favicon.png";
 const VAPID_PUBLIC_KEY = "BIRtPT_tN2Wfk0SqmgQhCMNxMZmVDmiNNQQ6oqxmOC0UQfLGckhFzKEyyA2ZtEljJ9druugMmPbUEJi1Z1FBtmk";
 
 // ---------- Name modal ----------
-function joinChat() {
-    const name = nameInput.value.trim();
-    if (!name) return;
+function startWithName(name) {
     username = name;
     nameModal.style.display = 'none';
     loadHistory();
     connect();
-    // Ask for notification permission (doesn't block anything if denied)
     requestNotifyPermission();
+}
+
+function joinChat() {
+    const name = nameInput.value.trim();
+    if (!name) return;
+    username = name;
+
+    localStorage.setItem(NAME_KEY, name);
+    startWithName(name);
 }
 
 joinBtn.addEventListener('click', joinChat);
 nameInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') joinChat();
 });
-nameInput.focus();
+
+// auto-join if already have name
+const savedName = localStorage.getItem(NAME_KEY);
+if (savedName) {
+    startWithName(savedName);
+} else {
+    nameInput.focus();
+}
+
+// ---------- Logout Button ----------
+function logout() {
+    localStorage.removeItem(NAME_KEY);
+    username = "";
+
+  // Stop websocket
+    if (ws) {
+        ws.onclose = null; // avoid auto-reconnect during logout
+        ws.close();
+        ws = null;
+    }
+
+  // Clear chat UI (optional)
+    messagesDiv.innerHTML = "";
+    unreadCount = 0;
+    updateTitle();
+
+  // Show name modal again
+    nameModal.style.display = ""; // or "flex" if that's your overlay style
+    nameInput.value = "";
+    nameInput.focus();
+}
+
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", logout);
+}
+
 
 // ---------- Helper to escape HTML ----------
 function escapeHtml(text) {

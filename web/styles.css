@@ -6,11 +6,12 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
 }
 
 .chat-container {
   width: 100%;
-  max-width: 480px;
+  max-width: 750px;
   height: 90vh;
   background: #242424;
   border-radius: 16px;
@@ -236,6 +237,20 @@ body {
       background: #579ff0;
     }
   }
+}
+
+/* logout */
+#logoutBtn {
+  background-color: transparent;
+  border: 1px solid #279ff0;
+  color: #279ff0;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  font-size: clamp(1.1rem, 1.5vw, 2rem);
+  font-weight: 500;
+
+  position: absolute;
+  top: 0.5em;
+  left: 1em;
 }
 
 @keyframes fadeIn {
