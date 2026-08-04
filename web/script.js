@@ -102,10 +102,11 @@ function showInstallDirections() {
     if (isIOS()) {
         title = "Add to Home Screen";
         body =
-        "1. Tap the <strong>Share</strong> button <span style='opacity:.8'>(square with arrow)</span><br>" +
-        "2. Scroll and tap <strong>Add to Home Screen</strong><br>" +
-        "3. Tap <strong>Add</strong><br>" +
-        "4. Open <strong>chatski</strong> from your Home Screen, then allow notifications.";
+        "1. Open in Safari"
+        "2. Tap the <strong>Share</strong> button <span style='opacity:.8'>(square with arrow)</span><br>" +
+        "3. Scroll and tap <strong>Add to Home Screen</strong><br>" +
+        "4. Tap <strong>Add</strong><br>" +
+        "5. Open <strong>chatski</strong> from your Home Screen, then allow notifications.";
     } else if (isMacOS()) {
         title = "Add to Dock (Mac)";
         body =
