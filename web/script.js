@@ -102,7 +102,7 @@ function showInstallDirections() {
     if (isIOS()) {
         title = "Add to Home Screen";
         body =
-        "1. Open in Safari"
+        "1. Open in Safari" +
         "2. Tap the <strong>Share</strong> button <span style='opacity:.8'>(square with arrow)</span><br>" +
         "3. Scroll and tap <strong>Add to Home Screen</strong><br>" +
         "4. Tap <strong>Add</strong><br>" +
@@ -124,7 +124,7 @@ function showInstallDirections() {
     const el = document.createElement("div");
     el.id = "install-hint";
     el.style.cssText =
-        "position:fixed;bottom:12px;left:12px;right:12px;max-width:420px;margin:auto;" +
+        "position:fixed;bottom:80px;left:12px;right:12px;max-width:420px;margin:auto;" +
         "padding:14px 16px;background:#1e293b;color:#fff;border-radius:12px;" +
         "z-index:9999;font:14px/1.45 system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35)";
     el.innerHTML =
