@@ -102,7 +102,7 @@ function showInstallDirections() {
     if (isIOS()) {
         title = "Add to Home Screen";
         body =
-        "1. Open in Safari" +
+        "1. Open in Safari<br>" +
         "2. Tap the <strong>Share</strong> button <span style='opacity:.8'>(square with arrow)</span><br>" +
         "3. Scroll and tap <strong>Add to Home Screen</strong><br>" +
         "4. Tap <strong>Add</strong><br>" +
