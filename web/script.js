@@ -25,6 +25,151 @@ const ORIGINAL_FAVICON =
   document.querySelector('link[rel="icon"]')?.href || "./icons/favicon.png";
 const VAPID_PUBLIC_KEY = "BIRtPT_tN2Wfk0SqmgQhCMNxMZmVDmiNNQQ6oqxmOC0UQfLGckhFzKEyyA2ZtEljJ9druugMmPbUEJi1Z1FBtmk";
 
+// ---------- PWA helpers ----------
+function isStandalone() {
+    return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+    );
+}
+
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+async function enablePush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        console.log("Push not supported");
+        return false;
+    }
+
+// iOS: push only works from the Home Screen app
+    if (isIOS() && !isStandalone()) {
+        console.log("iOS: open from Home Screen to enable push");
+        return false;
+    }
+
+    if (!("Notification" in window)) return false;
+
+    let permission = Notification.permission;
+    if (permission === "default") {
+        permission = await Notification.requestPermission();
+    }
+    if (permission !== "granted") {
+        console.log("Notification permission denied");
+        return false;
+    }
+
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VAPID_PUBLIC_KEY,
+            });
+        }
+        await fetch("/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sub),
+        });
+        console.log("Push subscribed");
+        return true;
+    } catch (err) {
+        console.error("Push subscribe failed:", err);
+        return false;
+    }
+}
+
+async function requestNotifyPermission() {
+    return enablePush();
+}
+
+function isMacOS() {
+    if (isIOS()) return false;
+    return /Mac/i.test(navigator.userAgent) || navigator.platform === "MacIntel";
+}
+
+function showInstallDirections() {
+    // Remove any existing hint
+    document.getElementById("install-hint")?.remove();
+
+    let title = "Install chatski";
+    let body = "";
+
+    if (isIOS()) {
+        title = "Add to Home Screen";
+        body =
+        "1. Tap the <strong>Share</strong> button <span style='opacity:.8'>(square with arrow)</span><br>" +
+        "2. Scroll and tap <strong>Add to Home Screen</strong><br>" +
+        "3. Tap <strong>Add</strong><br>" +
+        "4. Open <strong>chatski</strong> from your Home Screen, then allow notifications.";
+    } else if (isMacOS()) {
+        title = "Add to Dock (Mac)";
+        body =
+        "In <strong>Safari</strong>:<br>" +
+        "1. Open this site in Safari<br>" +
+        "2. Menu bar: <strong>File → Add to Dock…</strong><br>" +
+        "&nbsp;&nbsp;&nbsp;(or Share → Add to Dock)<br>" +
+        "3. Open chatski from the Dock and allow notifications if asked.<br><br>" +
+        "Chrome/Edge on Mac: use the install icon in the address bar, or the Install button if it appears.";
+    } else {
+        title = "Install app";
+        body = "Use your browser’s install option, or the Install button when it appears.";
+    }
+
+    const el = document.createElement("div");
+    el.id = "install-hint";
+    el.style.cssText =
+        "position:fixed;bottom:12px;left:12px;right:12px;max-width:420px;margin:auto;" +
+        "padding:14px 16px;background:#1e293b;color:#fff;border-radius:12px;" +
+        "z-index:9999;font:14px/1.45 system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35)";
+    el.innerHTML =
+        `<div style="display:flex;justify-content:space-between;gap:12px;align-items:start">` +
+        `<strong>${title}</strong>` +
+        `<button type="button" id="install-hint-close" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>` +
+        `</div>` +
+        `<div style="margin-top:8px;color:#e2e8f0">${body}</div>`;
+
+    document.body.appendChild(el);
+    document.getElementById("install-hint-close")?.addEventListener("click", () => el.remove());
+    }
+
+    function setupInstallButton() {
+    if (!installBtn) return;
+
+    // Already installed as PWA → hide
+    if (isStandalone()) {
+        installBtn.hidden = true;
+        return;
+    }
+
+    // iOS / iPad: always show button (beforeinstallprompt never fires)
+    if (isIOS()) {
+        installBtn.hidden = false;
+        installBtn.querySelector(".install-label") &&
+        (installBtn.querySelector(".install-label").textContent = "Install");
+        installBtn.onclick = (e) => {
+        e.preventDefault();
+        showInstallDirections();
+        };
+        return;
+    }
+
+    // Mac Safari: show directions (Chrome/Edge may still use beforeinstallprompt)
+    if (isMacOS()) {
+        installBtn.hidden = false;
+        installBtn.onclick = (e) => {
+        e.preventDefault();
+        showInstallDirections();
+        };
+    }
+}
+
+setupInstallButton();
+
 // ---------- Name modal ----------
 function startWithName(name) {
     username = name;
@@ -83,7 +228,6 @@ if (logoutBtn) {
     logoutBtn.addEventListener("click", logout);
 }
 
-
 // ---------- Helper to escape HTML ----------
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -135,106 +279,99 @@ function updateTitle() {
 
 //  ---------- Red PNG favicon badge ----------
 function updateFaviconBadge(count) {
-  const link =
-    document.querySelector('link[rel="icon"]') ||
-    document.createElement("link");
-  link.rel = "icon";
-  link.type = "image/png";
+    const link =
+        document.querySelector('link[rel="icon"]') ||
+        document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/png";
 
-  if (count <= 0) {
-    link.href = ORIGINAL_FAVICON;
-    if (!link.parentNode) document.head.appendChild(link);
-    return;
-  }
+    if (count <= 0) {
+        link.href = ORIGINAL_FAVICON;
+        if (!link.parentNode) document.head.appendChild(link);
+        return;
+    }
 
-  const size = 32;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
+    const size = 32;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
 
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    // Draw original favicon
-    ctx.drawImage(img, 0, 0, size, size);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+        // Draw original favicon
+        ctx.drawImage(img, 0, 0, size, size);
 
-    // Red circle (top-right)
-    const r = 9;
-    const x = size - r - 1;
-    const y = r + 1;
+        // Red circle (top-right)
+        const r = 9;
+        const x = size - r - 1;
+        const y = r + 1;
 
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#ef4444"; // red
-    ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ef4444"; // red
+        ctx.fill();
 
-    // White border
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+        // White border
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
-    // Number
-    ctx.fillStyle = "#ffffff";
-    ctx.font = count > 9
-        ? "bold 10px system-ui, -apple-system, sans-serif"
-        : "bold 12px system-ui, -apple-system, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const text = count > 9 ? "9+" : String(count);
-    ctx.fillText(text, x, y + 0.5);
+        // Number
+        ctx.fillStyle = "#ffffff";
+        ctx.font = count > 9
+            ? "bold 10px system-ui, -apple-system, sans-serif"
+            : "bold 12px system-ui, -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const text = count > 9 ? "9+" : String(count);
+        ctx.fillText(text, x, y + 0.5);
 
-    link.href = canvas.toDataURL("image/png");
-    if (!link.parentNode) document.head.appendChild(link);
-  };
-  img.onerror = () => {
-    link.href = ORIGINAL_FAVICON;
-  };
-  img.src = ORIGINAL_FAVICON;
+        link.href = canvas.toDataURL("image/png");
+        if (!link.parentNode) document.head.appendChild(link);
+    };
+    img.onerror = () => {
+        link.href = ORIGINAL_FAVICON;
+    };
+    img.src = ORIGINAL_FAVICON;
 }
 
 /* ---------- Native PWA app-icon badge ---------- */
 function updateAppBadge(count) {
-  if (!("setAppBadge" in navigator)) return;
+    if (!("setAppBadge" in navigator)) return;
 
-  if (count > 0) {
-    navigator.setAppBadge(count).catch(() => {});
-  } else {
-    navigator.clearAppBadge().catch(() => {});
-  }
-}
-
-/* ---------- Permission + toast-style notification ---------- */
-async function requestNotifyPermission() {
-  if (!("Notification" in window)) return;
-  const result = await Notification.requestPermission();
-  return result === "granted";
+    if (count > 0) {
+        navigator.setAppBadge(count).catch(() => {});
+    } else {
+        navigator.clearAppBadge().catch(() => {});
+    }
 }
 
 function notifyMessage(user, text) {
-  if (!("Notification" in window)) return;
-  if (
-    Notification.permission === "granted" &&
-    document.visibilityState !== "visible"
-  ) {
-    const n = new Notification(user, {
-      body: text,
-      icon: "/icons/icon-192.svg",
-    });
-    setTimeout(() => n.close(), 4000);
-  }
+    if (!("Notification" in window)) return;
+    if (
+        Notification.permission === "granted" &&
+        document.visibilityState !== "visible"
+    ) {
+        const n = new Notification(user, {
+        body: text,
+        icon: "/icons/icon-192.svg",
+        });
+        setTimeout(() => n.close(), 4000);
+    }
 }
 
 /* ---------- Clear when user comes back ---------- */
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
+    if (document.visibilityState === "visible") {
+        unreadCount = 0;
+        updateTitle();
+    }
+    });
+    window.addEventListener("focus", () => {
     unreadCount = 0;
     updateTitle();
-  }
-});
-window.addEventListener("focus", () => {
-  unreadCount = 0;
-  updateTitle();
 });
 
 // ---------- WebSocket ----------
@@ -299,36 +436,21 @@ input.addEventListener('keypress', (e) => {
 // ---------- PWA: Service Worker ----------
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
-    navigator.serviceWorker.ready.then(async (reg) => {
-        reg.update();
-        const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: VAPID_PUBLIC_KEY,
-        });
-        await fetch("/subscribe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(sub),
-        });
-    });
 }
 
 // ---------- PWA: Install prompt ----------
 let deferredPrompt = null;
 
-window.addEventListener('beforeinstallprompt', (e) => {
+window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (installBtn) installBtn.hidden = false;
-});
-
-if (installBtn) {
-    installBtn.addEventListener('click', async () => {
+    if (!installBtn || isIOS()) return;
+    installBtn.hidden = false;
+    installBtn.onclick = async () => {
         if (!deferredPrompt) return;
         installBtn.hidden = true;
         deferredPrompt.prompt();
-        const result = await deferredPrompt.userChoice;
-        console.log('Install result:', result.outcome);
+        await deferredPrompt.userChoice;
         deferredPrompt = null;
-    });
-}
+    };
+});

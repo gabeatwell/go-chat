@@ -45,9 +45,12 @@ self.addEventListener("fetch", (event) => {
     // --- Same-origin checks only ---
     if (url.origin !== location.origin) return;
 
-    // API calls → network only (never cache)
-    if (url.pathname === "/history") {
-        event.respondWith(fetch(request));
+    // API / realtime — never cache, let the browser handle them
+    if (
+        url.pathname === "/history" ||
+        url.pathname === "/subscribe" ||
+        url.pathname === "/ws"
+    ) {
         return;
     }
 
@@ -80,18 +83,46 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
     const data = event.data ? event.data.json() : {};
     event.waitUntil(
-        self.registration.showNotification(data.user || "chatski", {
-            body: data.text,
-            icon: "/icons/icon-192.svg",
-            tag: "chat", // collapse multiple messages into one notification
-        })
+        (async () => {
+            // Show system notification
+            await self.registration.showNotification(data.user || "chatski", {
+                body: data.text || "New message",
+                icon: "/icons/icon-192.png", // prefer PNG on iOS (see below)
+                badge: "/icons/favicon.png",
+                tag: "chat",
+            });
+
+            // Home Screen badge (iOS 16.4+ / installed PWA)
+            if (self.navigator.setAppBadge) {
+                const count = data.count != null ? Number(data.count) : 1;
+                try {
+                await self.navigator.setAppBadge(count > 0 ? count : 1);
+                } catch (e) {
+                // ignore
+                }
+            }
+        })()
     );
 });
 
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
     event.waitUntil(
-        clients.matchAll({ type: "window", includeUncontrolled: true })
-            .then((list) => list[0] ? list[0].focus() : clients.openWindow("/"))
+        (async () => {
+        if (self.navigator.clearAppBadge) {
+            try {
+            await self.navigator.clearAppBadge();
+            } catch (e) {}
+        }
+        const list = await clients.matchAll({
+            type: "window",
+            includeUncontrolled: true,
+        });
+        if (list[0]) {
+            await list[0].focus();
+        } else {
+            await clients.openWindow("/");
+        }
+        })()
     );
 });
