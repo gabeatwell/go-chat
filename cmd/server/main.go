@@ -53,9 +53,6 @@ func main() {
 	})
 	http.Handle("/", http.FileServer(http.Dir("web")))
 
-
-
-	// New endpoint: return recent messages
 	http.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
 		messages, err := db.GetRecentMessages(50)
 		if err != nil {
@@ -85,6 +82,26 @@ func main() {
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		hub.ServeWS(h, w, r)
+	})
+
+	http.HandleFunc("/clear", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		token := os.Getenv("ADMIN_TOKEN")
+		if token == "" || r.Header.Get("X-Admin-Token") != token {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if err := db.ClearMessages(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	port := os.Getenv("PORT")

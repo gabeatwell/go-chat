@@ -114,3 +114,8 @@ func GetRecentMessages(limit int) ([]Message, error) {
 
 	return messages, nil
 }
+
+func ClearMessages() error {
+	_, err := DB.Exec(`DELETE FROM messages`)
+	return err
+}
