@@ -16,6 +16,11 @@ const adminLoginBtn = document.getElementById('adminLoginBtn');
 const adminCancelBtn = document.getElementById('adminCancelBtn');
 const adminErrorMsg = document.getElementById('adminErrorMsg');
 
+if (clearBtn) {
+    clearBtn.hidden = true;
+    clearBtn.style.display = 'none';
+}
+
 // ---------- Halt if critical elements are missing ----------
 if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) {
     console.error('Required HTML elements not found');
@@ -179,21 +184,22 @@ function showInstallDirections() {
 setupInstallButton();
 
 // ---------- Name modal ----------
-function startWithName(name) {
+async function startWithName(name) {
     username = name;
     nameModal.style.display = 'none';
+    await handleAdminLogout();
     loadHistory();
     connect();
     requestNotifyPermission();
 }
 
-function joinChat() {
+async function joinChat() {
     const name = nameInput.value.trim();
     if (!name) return;
     username = name;
 
     localStorage.setItem(NAME_KEY, name);
-    startWithName(name);
+    await startWithName(name);
 }
 
 joinBtn.addEventListener('click', joinChat);
@@ -203,21 +209,38 @@ nameInput.addEventListener('keypress', (e) => {
 
 // auto-join if already have name
 const savedName = localStorage.getItem(NAME_KEY);
-if (savedName) {
-    startWithName(savedName);
-} else {
-    nameInput.focus();
+let adminLoggedIn = false;
+updateAdminUI();
+
+async function init() {
+    await handleAdminLogout();
+
+    if (savedName) {
+        await startWithName(savedName);
+    } else {
+        nameInput.focus();
+    }
 }
 
-let adminLoggedIn = false;
+init();
 
 function updateAdminUI() {
     if (adminLoggedIn) {
-        clearBtn.hidden = false;
-        adminBtn.hidden = true;
+        if (clearBtn) {
+            clearBtn.hidden = false;
+            clearBtn.style.display = 'inline-flex';
+        }
+        if (adminBtn) {
+            adminBtn.hidden = true;
+        }
     } else {
-        clearBtn.hidden = true;
-        adminBtn.hidden = false;
+        if (clearBtn) {
+            clearBtn.hidden = true;
+            clearBtn.style.display = 'none';
+        }
+        if (adminBtn) {
+            adminBtn.hidden = false;
+        }
     }
 }
 
@@ -361,8 +384,6 @@ if (adminPasswordInput) {
         if (e.key === 'Enter') handleAdminLogin();
     });
 }
-
-checkAdminStatus();
 
 // ---------- Helper to escape HTML ----------
 function escapeHtml(text) {
