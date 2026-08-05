@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
@@ -15,11 +16,25 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gabeatwell/go-chat/internal/db"
 	"github.com/gabeatwell/go-chat/internal/hub"
 )
+
+const (
+	adminSessionCookie   = "gochat_admin_session"
+	adminSessionDuration = 30 * time.Minute
+	defaultAdminPassword = "Admin1234"
+)
+
+var adminSessions = struct {
+	sync.Mutex
+	sessions map[string]time.Time
+}{
+	sessions: map[string]time.Time{},
+}
 
 func main() {
 	devHTTPS := flag.Bool("dev-https", false, "Serve HTTPS with a self-signed cert on :8443")
@@ -84,6 +99,60 @@ func main() {
 		hub.ServeWS(h, w, r)
 	})
 
+	http.HandleFunc("/admin/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			adminPassword = defaultAdminPassword
+		}
+
+		var body struct {
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		if subtle.ConstantTimeCompare([]byte(body.Password), []byte(adminPassword)) != 1 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		secureCookie := r.TLS != nil
+		if err := createAdminSession(w, secureCookie); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	http.HandleFunc("/admin/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		loggedIn := isAdmin(r)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"loggedIn": loggedIn})
+	})
+
+	http.HandleFunc("/admin/logout", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		clearAdminSession(w, r)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	http.HandleFunc("/clear", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -91,7 +160,7 @@ func main() {
 		}
 
 		token := os.Getenv("ADMIN_TOKEN")
-		if token == "" || r.Header.Get("X-Admin-Token") != token {
+		if !isAdmin(r) && (token == "" || r.Header.Get("X-Admin-Token") != token) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -196,6 +265,79 @@ func pemEncode(data []byte, blockType string) []byte {
 	}
 	pem = append(pem, []byte("-----END "+blockType+"-----\n")...)
 	return pem
+}
+
+func generateRandomToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func createAdminSession(w http.ResponseWriter, secure bool) error {
+	token, err := generateRandomToken()
+	if err != nil {
+		return err
+	}
+
+	adminSessions.Lock()
+	adminSessions.sessions[token] = time.Now().Add(adminSessionDuration)
+	adminSessions.Unlock()
+
+	cookie := &http.Cookie{
+		Name:     adminSessionCookie,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(adminSessionDuration.Seconds()),
+		Secure:   secure,
+	}
+	http.SetCookie(w, cookie)
+	return nil
+}
+
+func isAdmin(r *http.Request) bool {
+	cookie, err := r.Cookie(adminSessionCookie)
+	if err != nil {
+		return false
+	}
+
+	adminSessions.Lock()
+	expiry, ok := adminSessions.sessions[cookie.Value]
+	if !ok {
+		adminSessions.Unlock()
+		return false
+	}
+
+	if time.Now().After(expiry) {
+		delete(adminSessions.sessions, cookie.Value)
+		adminSessions.Unlock()
+		return false
+	}
+	adminSessions.Unlock()
+	return true
+}
+
+func clearAdminSession(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(adminSessionCookie)
+	if err == nil {
+		adminSessions.Lock()
+		delete(adminSessions.sessions, cookie.Value)
+		adminSessions.Unlock()
+	}
+
+	expiredCookie := &http.Cookie{
+		Name:     adminSessionCookie,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+		Secure:   r.TLS != nil,
+	}
+	http.SetCookie(w, expiredCookie)
 }
 
 var buildVersion = "dev"

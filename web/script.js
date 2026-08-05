@@ -8,6 +8,13 @@ const nameInput = document.getElementById('nameInput');
 const joinBtn = document.getElementById('joinBtn');
 const installBtn = document.getElementById('installBtn');
 const logoutBtn = document.getElementById("logoutBtn");
+const adminBtn = document.getElementById('adminBtn');
+const clearBtn = document.getElementById('clearBtn');
+const adminModal = document.getElementById('adminModal');
+const adminPasswordInput = document.getElementById('adminPassword');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const adminCancelBtn = document.getElementById('adminCancelBtn');
+const adminErrorMsg = document.getElementById('adminErrorMsg');
 
 // ---------- Halt if critical elements are missing ----------
 if (!messagesDiv || !input || !sendBtn || !nameModal || !nameInput || !joinBtn) {
@@ -202,8 +209,108 @@ if (savedName) {
     nameInput.focus();
 }
 
+let adminLoggedIn = false;
+
+function updateAdminUI() {
+    if (adminLoggedIn) {
+        clearBtn.hidden = false;
+        adminBtn.hidden = true;
+    } else {
+        clearBtn.hidden = true;
+        adminBtn.hidden = false;
+    }
+}
+
+async function checkAdminStatus() {
+    try {
+        const res = await fetch('/admin/status');
+        if (!res.ok) throw new Error('status failed');
+        const body = await res.json();
+        adminLoggedIn = !!body.loggedIn;
+    } catch (err) {
+        adminLoggedIn = false;
+    }
+    updateAdminUI();
+}
+
+function openAdminModal() {
+    if (!adminModal) return;
+    adminErrorMsg.textContent = '';
+    adminPasswordInput.value = '';
+    adminModal.style.display = 'flex';
+    adminPasswordInput.focus();
+}
+
+function closeAdminModal() {
+    if (!adminModal) return;
+    adminModal.style.display = 'none';
+    adminErrorMsg.textContent = '';
+}
+
+async function handleAdminLogin() {
+    const password = adminPasswordInput.value.trim();
+    if (!password) {
+        adminErrorMsg.textContent = 'Enter the admin password.';
+        return;
+    }
+
+    try {
+        const res = await fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+        });
+        if (!res.ok) {
+            if (res.status === 401) {
+                adminErrorMsg.textContent = 'Incorrect password.';
+            } else {
+                adminErrorMsg.textContent = 'Login failed. Try again.';
+            }
+            return;
+        }
+
+        adminLoggedIn = true;
+        updateAdminUI();
+        closeAdminModal();
+    } catch (err) {
+        adminErrorMsg.textContent = 'Login failed. Try again.';
+        console.error(err);
+    }
+}
+
+async function handleAdminLogout() {
+    try {
+        await fetch('/admin/logout', { method: 'POST' });
+    } catch (err) {
+        console.error('admin logout failed', err);
+    }
+    adminLoggedIn = false;
+    updateAdminUI();
+}
+
+async function handleClearMessages() {
+    if (!confirm('Clear all chat messages? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/clear', { method: 'POST' });
+        if (res.status === 204) {
+            messagesDiv.innerHTML = '';
+            return;
+        }
+        if (res.status === 401) {
+            adminLoggedIn = false;
+            updateAdminUI();
+            alert('Admin session expired. Please log in again.');
+            return;
+        }
+        throw new Error('Clear failed');
+    } catch (err) {
+        alert('Unable to clear chat.');
+        console.error(err);
+    }
+}
+
 // ---------- Logout Button ----------
-function logout() {
+async function logout() {
     localStorage.removeItem(NAME_KEY);
     username = "";
 
@@ -219,6 +326,14 @@ function logout() {
     unreadCount = 0;
     updateTitle();
 
+  // If the user is also admin, clear that session too
+    if (adminLoggedIn) {
+        await handleAdminLogout();
+    }
+
+    adminLoggedIn = false;
+    updateAdminUI();
+
   // Show name modal again
     nameModal.style.display = ""; // or "flex" if that's your overlay style
     nameInput.value = "";
@@ -228,6 +343,26 @@ function logout() {
 if (logoutBtn) {
     logoutBtn.addEventListener("click", logout);
 }
+
+if (adminBtn) {
+    adminBtn.addEventListener('click', openAdminModal);
+}
+if (clearBtn) {
+    clearBtn.addEventListener('click', handleClearMessages);
+}
+if (adminLoginBtn) {
+    adminLoginBtn.addEventListener('click', handleAdminLogin);
+}
+if (adminCancelBtn) {
+    adminCancelBtn.addEventListener('click', closeAdminModal);
+}
+if (adminPasswordInput) {
+    adminPasswordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAdminLogin();
+    });
+}
+
+checkAdminStatus();
 
 // ---------- Helper to escape HTML ----------
 function escapeHtml(text) {
