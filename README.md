@@ -1,6 +1,6 @@
 # Go Chat
 
-A real-time chat application built with Go on the backend and vanilla HTML/CSS/JavaScript on the frontend. WebSocket communication is powered by the gorilla/websocket package.
+A real-time chat application built with Go on the backend and vanilla HTML/CSS/TypeScript on the frontend. WebSocket communication is powered by the gorilla/websocket package.
 
 ## Features
 
@@ -28,7 +28,7 @@ go-chat/
 ├── web/
 │   ├── index.html               # Chat UI
 │   ├── styles.css               # Stylesheet
-│   └── script.js                # Client-side WebSocket logic
+│   └── script.ts                # Client-side WebSocket logic
 ├── go.mod                       # Go module definition
 └── README.md
 ```
@@ -62,7 +62,7 @@ Each connected user is represented by a Client struct with two goroutines:
 
 The client package defines a Hub interface to avoid a circular import with the hub package.
 
-**Frontend** (`script.js`)
+**Frontend** (`script.ts`)
 
 - Connects to the WebSocket server automatically.
 - Prompts for a username on page load.

@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "es2020",
+        "lib": [
+            "ES2020",
+            "DOM",
+            "DOM.Iterable",
+            "WebWorker"
+        ],
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmitOnError": true,
+        "rootDir": "web",
+        "outDir": "web",
+        "moduleResolution": "bundler",
+        "forceConsistentCasingInFileNames": true,
+        "esModuleInterop": true
+    },
+    "include": [
+        "web/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
