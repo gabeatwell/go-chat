@@ -108,6 +108,20 @@ function isIOS(): boolean {
   );
 }
 
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const buffer = new ArrayBuffer(rawData.length);
+  const output = new Uint8Array(buffer);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    output[i] = rawData.charCodeAt(i);
+  }
+
+  return buffer;
+}
+
 async function enablePush(): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     console.log("Push not supported");
@@ -121,6 +135,11 @@ async function enablePush(): Promise<boolean> {
   }
 
   if (!("Notification" in window)) return false;
+
+  if (!window.isSecureContext && location.hostname !== "localhost") {
+    console.log("Push requires HTTPS or localhost.");
+    return false;
+  }
 
   let permission = Notification.permission;
   if (permission === "default") {
@@ -137,7 +156,7 @@ async function enablePush(): Promise<boolean> {
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY,
+        applicationServerKey: urlBase64ToArrayBuffer(VAPID_PUBLIC_KEY),
       });
     }
     await fetch("/subscribe", {
