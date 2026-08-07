@@ -68,6 +68,24 @@ if (clearBtn) {
   clearBtn.style.display = "none";
 }
 
+const adminLoginForm = document.getElementById(
+  "adminLoginForm",
+) as HTMLFormElement | null;
+if (adminLoginForm) {
+  adminLoginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await handleAdminLogin();
+  });
+}
+
+const nameForm = document.getElementById("nameForm") as HTMLFormElement | null;
+if (nameForm) {
+  nameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await joinChat();
+  });
+}
+
 // ---------- Halt if critical elements are missing ----------
 if (
   !messagesDiv ||
@@ -128,20 +146,26 @@ async function enablePush(): Promise<boolean> {
     return false;
   }
 
-  // iOS: push only works from the Home Screen app
-  if (isIOS() && !isStandalone()) {
-    console.log("iOS: open from Home Screen to enable push");
-    return false;
-  }
-
-  if (!("Notification" in window)) return false;
-
   if (!window.isSecureContext && location.hostname !== "localhost") {
     console.log("Push requires HTTPS or localhost.");
     return false;
   }
 
+  // iOS: push only works from the Home Screen app
+  if (isIOS() && !isStandalone()) {
+    console.log(
+      "iOS: push only works when the app is installed from the Home Screen",
+    );
+    return false;
+  }
+
+  if (!("Notification" in window)) {
+    console.log("Notifications unavailable");
+    return false;
+  }
+
   let permission = Notification.permission;
+
   if (permission === "default") {
     permission = await Notification.requestPermission();
   }
@@ -153,21 +177,33 @@ async function enablePush(): Promise<boolean> {
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToArrayBuffer(VAPID_PUBLIC_KEY),
       });
     }
-    await fetch("/subscribe", {
+
+    const res = await fetch("/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(sub),
     });
+
+    if (!res.ok) {
+      console.warn(
+        "Subscription server rejected push registration:",
+        res.status,
+      );
+      return false;
+    }
+
     console.log("Push subscribed");
     return true;
   } catch (err) {
     console.error("Push subscribe failed:", err);
+
     return false;
   }
 }
@@ -267,23 +303,29 @@ setupInstallButton();
 async function startWithName(name: string): Promise<void> {
   username = name;
   if (nameModal) nameModal.style.display = "none";
-  await handleAdminLogout();
-  loadHistory();
+
+  localStorage.setItem(NAME_KEY, name);
+
+  // await handleAdminLogout();
+  try {
+    await loadHistory();
+  } catch (err) {
+    console.warn("History load failed, continuing anyway:", err);
+  }
+
   connect();
-  requestNotifyPermission();
+  // requestNotifyPermission();
 }
 
 async function joinChat(): Promise<void> {
   if (!nameInput) return;
+
   const name = nameInput.value.trim();
   if (!name) return;
-  username = name;
 
-  localStorage.setItem(NAME_KEY, name);
   await startWithName(name);
 }
 
-joinBtn.addEventListener("click", joinChat);
 if (nameInput) {
   nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") joinChat();
@@ -296,7 +338,7 @@ let adminLoggedIn = false;
 updateAdminUI();
 
 async function init(): Promise<void> {
-  await handleAdminLogout();
+  // await handleAdminLogout();
 
   if (savedName) {
     await startWithName(savedName);
@@ -380,6 +422,8 @@ async function handleAdminLogin(): Promise<void> {
     }
 
     adminLoggedIn = true;
+    username = "Admin";
+    localStorage.setItem(NAME_KEY, "Admin");
     updateAdminUI();
     closeAdminModal();
   } catch (err) {
@@ -463,15 +507,15 @@ if (logoutBtn) {
 if (adminBtn) {
   adminBtn.addEventListener("click", openAdminModal);
 }
+
 if (clearBtn) {
   clearBtn.addEventListener("click", handleClearMessages);
 }
-if (adminLoginBtn) {
-  adminLoginBtn.addEventListener("click", handleAdminLogin);
-}
+
 if (adminCancelBtn) {
   adminCancelBtn.addEventListener("click", closeAdminModal);
 }
+
 if (adminPasswordInput) {
   adminPasswordInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") handleAdminLogin();

@@ -20,6 +20,20 @@ if (clearBtn) {
     clearBtn.hidden = true;
     clearBtn.style.display = "none";
 }
+const adminLoginForm = document.getElementById("adminLoginForm");
+if (adminLoginForm) {
+    adminLoginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await handleAdminLogin();
+    });
+}
+const nameForm = document.getElementById("nameForm");
+if (nameForm) {
+    nameForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await joinChat();
+    });
+}
 // ---------- Halt if critical elements are missing ----------
 if (!messagesDiv ||
     !input ||
@@ -50,9 +64,7 @@ function isIOS() {
 }
 function urlBase64ToArrayBuffer(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding)
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
     const rawData = window.atob(base64);
     const buffer = new ArrayBuffer(rawData.length);
     const output = new Uint8Array(buffer);
@@ -66,15 +78,17 @@ async function enablePush() {
         console.log("Push not supported");
         return false;
     }
-    // iOS: push only works from the Home Screen app
-    if (isIOS() && !isStandalone()) {
-        console.log("iOS: open from Home Screen to enable push");
-        return false;
-    }
-    if (!("Notification" in window))
-        return false;
     if (!window.isSecureContext && location.hostname !== "localhost") {
         console.log("Push requires HTTPS or localhost.");
+        return false;
+    }
+    // iOS: push only works from the Home Screen app
+    if (isIOS() && !isStandalone()) {
+        console.log("iOS: push only works when the app is installed from the Home Screen");
+        return false;
+    }
+    if (!("Notification" in window)) {
+        console.log("Notifications unavailable");
         return false;
     }
     let permission = Notification.permission;
@@ -94,11 +108,15 @@ async function enablePush() {
                 applicationServerKey: urlBase64ToArrayBuffer(VAPID_PUBLIC_KEY),
             });
         }
-        await fetch("/subscribe", {
+        const res = await fetch("/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(sub),
         });
+        if (!res.ok) {
+            console.warn("Subscription server rejected push registration:", res.status);
+            return false;
+        }
         console.log("Push subscribed");
         return true;
     }
@@ -196,10 +214,16 @@ async function startWithName(name) {
     username = name;
     if (nameModal)
         nameModal.style.display = "none";
-    await handleAdminLogout();
-    loadHistory();
+    localStorage.setItem(NAME_KEY, name);
+    // await handleAdminLogout();
+    try {
+        await loadHistory();
+    }
+    catch (err) {
+        console.warn("History load failed, continuing anyway:", err);
+    }
     connect();
-    requestNotifyPermission();
+    // requestNotifyPermission();
 }
 async function joinChat() {
     if (!nameInput)
@@ -207,11 +231,8 @@ async function joinChat() {
     const name = nameInput.value.trim();
     if (!name)
         return;
-    username = name;
-    localStorage.setItem(NAME_KEY, name);
     await startWithName(name);
 }
-joinBtn.addEventListener("click", joinChat);
 if (nameInput) {
     nameInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter")
@@ -223,7 +244,7 @@ const savedName = localStorage.getItem(NAME_KEY);
 let adminLoggedIn = false;
 updateAdminUI();
 async function init() {
-    await handleAdminLogout();
+    // await handleAdminLogout();
     if (savedName) {
         await startWithName(savedName);
     }
@@ -305,6 +326,8 @@ async function handleAdminLogin() {
             return;
         }
         adminLoggedIn = true;
+        username = "Admin";
+        localStorage.setItem(NAME_KEY, "Admin");
         updateAdminUI();
         closeAdminModal();
     }
@@ -385,9 +408,6 @@ if (adminBtn) {
 }
 if (clearBtn) {
     clearBtn.addEventListener("click", handleClearMessages);
-}
-if (adminLoginBtn) {
-    adminLoginBtn.addEventListener("click", handleAdminLogin);
 }
 if (adminCancelBtn) {
     adminCancelBtn.addEventListener("click", closeAdminModal);
