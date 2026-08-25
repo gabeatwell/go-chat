@@ -48,6 +48,8 @@ let username = "";
 let ws = null;
 let reconnectAttempts = 0;
 let unreadCount = 0;
+const recentMessages = new Set();
+const DEDUP_WINDOW_MS = 3000;
 const NAME_KEY = "chatski_username";
 const ORIGINAL_TITLE = document.title;
 const ORIGINAL_FAVICON = document.querySelector('link[rel="icon"]')
@@ -209,6 +211,7 @@ function setupInstallButton() {
     }
 }
 setupInstallButton();
+
 // ---------- Name modal ----------
 async function startWithName(name) {
     username = name;
@@ -553,6 +556,12 @@ window.addEventListener("focus", () => {
 });
 // ---------- WebSocket ----------
 function connect() {
+    // Close any existing connection first to prevent duplicate messages
+    if (ws) {
+        ws.onclose = null; // Prevent reconnect loop
+        ws.close();
+        ws = null;
+    }
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     ws = new WebSocket(`${protocol}//${location.host}/ws`);
     ws.onopen = () => {
@@ -576,6 +585,14 @@ function connect() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            // Deduplicate: skip if we've seen this message recently
+            const dedupKey = `${data.user}:${data.text}:${data.ts || ''}`;
+            if (recentMessages.has(dedupKey)) {
+                console.log("Duplicate message suppressed:", dedupKey);
+                return;
+            }
+            recentMessages.add(dedupKey);
+            setTimeout(() => recentMessages.delete(dedupKey), DEDUP_WINDOW_MS);
             addMessage(data.user, data.text, data.user === username);
             if (data.user !== username) {
                 unreadCount++;
